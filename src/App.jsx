@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import './App.css'
 
 // HERO IMAGE
@@ -19,7 +20,400 @@ import staff from './assets/staff.png'
 import supplies from './assets/supplies.png'
 import office from './assets/office.png'
 
+const initialForm = {
+  fullName: '',
+  businessName: '',
+  email: '',
+  phone: '',
+  serviceType: '',
+  serviceFrequency: '',
+  projectDetails: '',
+}
+
+const formatSubmittedAt = (value) => {
+  const parsedDate = new Date(value.replace(' ', 'T'))
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return value
+  }
+
+  return parsedDate.toLocaleString()
+}
+
+function AdminView() {
+  const [quotes, setQuotes] = useState([])
+  const [adminSecret, setAdminSecret] = useState(
+    () => window.sessionStorage.getItem('gcs-admin-secret') || '',
+  )
+  const [secretInput, setSecretInput] = useState(
+    () => window.sessionStorage.getItem('gcs-admin-secret') || '',
+  )
+  const [adminState, setAdminState] = useState({
+    status: 'loading',
+    message: '',
+  })
+
+  const loadQuotes = async () => {
+    setAdminState({ status: 'loading', message: '' })
+
+    try {
+      const response = await fetch('/api/quotes', {
+        headers: adminSecret
+          ? {
+              'x-admin-secret': adminSecret,
+            }
+          : {},
+      })
+      const data = await response.json()
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          window.sessionStorage.removeItem('gcs-admin-secret')
+          setAdminSecret('')
+          setSecretInput('')
+          setQuotes([])
+          setAdminState({
+            status: 'locked',
+            message: data.message || 'Admin access requires a valid password.',
+          })
+          return
+        }
+
+        setAdminState({
+          status: 'error',
+          message: data.message || 'We could not load quote requests.',
+        })
+        return
+      }
+
+      setQuotes(data.quotes || [])
+      setAdminState({ status: 'ready', message: '' })
+    } catch {
+      setAdminState({
+        status: 'error',
+        message: 'We could not load quote requests right now.',
+      })
+    }
+  }
+
+  useEffect(() => {
+    const loadInitialQuotes = async () => {
+      try {
+        const response = await fetch('/api/quotes', {
+          headers: adminSecret
+            ? {
+                'x-admin-secret': adminSecret,
+              }
+            : {},
+        })
+        const data = await response.json()
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            window.sessionStorage.removeItem('gcs-admin-secret')
+            setAdminSecret('')
+            setSecretInput('')
+            setQuotes([])
+            setAdminState({
+              status: 'locked',
+              message:
+                data.message || 'Admin access requires a valid password.',
+            })
+            return
+          }
+
+          setAdminState({
+            status: 'error',
+            message: data.message || 'We could not load quote requests.',
+          })
+          return
+        }
+
+        setQuotes(data.quotes || [])
+        setAdminState({ status: 'ready', message: '' })
+      } catch {
+        setAdminState({
+          status: 'error',
+          message: 'We could not load quote requests right now.',
+        })
+      }
+    }
+
+    void loadInitialQuotes()
+  }, [adminSecret])
+
+  const handleAdminUnlock = (event) => {
+    event.preventDefault()
+
+    const nextSecret = secretInput.trim()
+
+    if (!nextSecret) {
+      setAdminState({
+        status: 'locked',
+        message: 'Enter your admin password to view saved quote requests.',
+      })
+      return
+    }
+
+    window.sessionStorage.setItem('gcs-admin-secret', nextSecret)
+    setAdminSecret(nextSecret)
+  }
+
+  const handleAdminLogout = () => {
+    window.sessionStorage.removeItem('gcs-admin-secret')
+    setAdminSecret('')
+    setSecretInput('')
+    setQuotes([])
+    setAdminState({
+      status: 'locked',
+      message: 'Enter your admin password to view saved quote requests.',
+    })
+  }
+
+  return (
+    <div className="site-wrapper admin-page">
+      <header className="site-header">
+        <div className="container nav">
+          <div className="brand">
+            <img
+              src="/GlobalCSlogo.png"
+              alt="Global Choice Solution logo"
+              className="logo-img"
+            />
+            <div>
+              <h1>Global Choice Solution</h1>
+              <p>Quote Request Dashboard</p>
+            </div>
+          </div>
+
+          <nav className="nav-links">
+            <a href="/">Main Site</a>
+            <button
+              type="button"
+              className="btn btn-secondary admin-refresh"
+              onClick={loadQuotes}
+            >
+              Refresh
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary admin-refresh"
+              onClick={handleAdminLogout}
+            >
+              Lock
+            </button>
+          </nav>
+        </div>
+      </header>
+
+      <main className="admin-main">
+        <section className="section">
+          <div className="container admin-shell">
+            <div className="section-heading admin-heading">
+              <p className="eyebrow dark-eyebrow">Admin</p>
+              <h2>Saved Quote Requests</h2>
+              <p>
+                Open this page at <strong>`/#admin`</strong> and enter your
+                admin password to review submissions from the website form.
+              </p>
+            </div>
+
+            {adminState.status === 'locked' ? (
+              <form className="admin-login" onSubmit={handleAdminUnlock}>
+                <label className="admin-login-label" htmlFor="admin-secret">
+                  Admin Password
+                </label>
+                <div className="admin-login-row">
+                  <input
+                    id="admin-secret"
+                    type="password"
+                    value={secretInput}
+                    onChange={(event) => setSecretInput(event.target.value)}
+                    placeholder="Enter your admin password"
+                  />
+                  <button type="submit" className="btn btn-primary">
+                    Unlock
+                  </button>
+                </div>
+                <p className="admin-login-help">{adminState.message}</p>
+              </form>
+            ) : null}
+
+            {adminState.status === 'error' ? (
+              <p className="form-message form-message-error">
+                {adminState.message}
+              </p>
+            ) : null}
+
+            {adminState.status !== 'locked' ? (
+              <div className="admin-summary">
+                <div className="hero-stat">
+                  <strong>{quotes.length}</strong>
+                  <span>Total quote requests</span>
+                </div>
+                <div className="hero-stat">
+                  <strong>
+                    {quotes[0]
+                      ? formatSubmittedAt(quotes[0].createdAt)
+                      : 'No submissions yet'}
+                  </strong>
+                  <span>Most recent submission</span>
+                </div>
+              </div>
+            ) : null}
+
+            {adminState.status === 'loading' ? (
+              <div className="admin-empty">
+                <p>Loading quote requests...</p>
+              </div>
+            ) : null}
+
+            {adminState.status === 'ready' && quotes.length === 0 ? (
+              <div className="admin-empty">
+                <p>No quote requests have been submitted yet.</p>
+              </div>
+            ) : null}
+
+            {adminState.status === 'ready' && quotes.length > 0 ? (
+              <div className="admin-list">
+                {quotes.map((quote) => (
+                  <article key={quote.id} className="admin-card">
+                    <div className="admin-card-header">
+                      <div>
+                        <p className="admin-card-label">Quote #{quote.id}</p>
+                        <h3>{quote.businessName}</h3>
+                      </div>
+                      <span className="admin-date">
+                        {formatSubmittedAt(quote.createdAt)}
+                      </span>
+                    </div>
+
+                    <div className="admin-grid">
+                      <div className="admin-field">
+                        <span>Name</span>
+                        <strong>{quote.fullName}</strong>
+                      </div>
+                      <div className="admin-field">
+                        <span>Email</span>
+                        <strong>{quote.email}</strong>
+                      </div>
+                      <div className="admin-field">
+                        <span>Phone</span>
+                        <strong>{quote.phone}</strong>
+                      </div>
+                      <div className="admin-field">
+                        <span>Service</span>
+                        <strong>{quote.serviceType}</strong>
+                      </div>
+                      <div className="admin-field">
+                        <span>Frequency</span>
+                        <strong>{quote.serviceFrequency}</strong>
+                      </div>
+                    </div>
+
+                    <div className="admin-details">
+                      <span>Project Details</span>
+                      <p>{quote.projectDetails}</p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </section>
+      </main>
+    </div>
+  )
+}
+
 function App() {
+  const [formData, setFormData] = useState(initialForm)
+  const [errors, setErrors] = useState({})
+  const [submitState, setSubmitState] = useState({
+    status: 'idle',
+    message: '',
+  })
+  const [isAdminPage, setIsAdminPage] = useState(
+    window.location.hash === '#admin',
+  )
+
+  useEffect(() => {
+    const updateRoute = () => {
+      setIsAdminPage(window.location.hash === '#admin')
+    }
+
+    window.addEventListener('hashchange', updateRoute)
+
+    return () => {
+      window.removeEventListener('hashchange', updateRoute)
+    }
+  }, [])
+
+  const handleChange = (event) => {
+    const { name, value } = event.target
+
+    setFormData((current) => ({
+      ...current,
+      [name]: value,
+    }))
+
+    setErrors((current) => {
+      if (!current[name]) {
+        return current
+      }
+
+      const next = { ...current }
+      delete next[name]
+      return next
+    })
+  }
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    setSubmitState({ status: 'submitting', message: '' })
+
+    try {
+      const response = await fetch('/api/quotes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setErrors(data.errors || {})
+        setSubmitState({
+          status: 'error',
+          message:
+            data.message ||
+            'We could not save your request. Please review the form and try again.',
+        })
+        return
+      }
+
+      setFormData(initialForm)
+      setErrors({})
+      setSubmitState({
+        status: 'success',
+        message:
+          'Your quote request has been received. We will follow up with you soon.',
+      })
+    } catch {
+      setSubmitState({
+        status: 'error',
+        message:
+          'We could not reach the quote system right now. Please try again in a moment.',
+      })
+    }
+  }
+
+  if (isAdminPage) {
+    return <AdminView />
+  }
+
   return (
     <div className="site-wrapper">
       <header className="site-header">
@@ -432,12 +826,45 @@ function App() {
               </div>
             </div>
 
-            <form className="quote-form">
-              <input type="text" placeholder="Full Name" />
-              <input type="text" placeholder="Business Name" />
-              <input type="email" placeholder="Email Address" />
-              <input type="tel" placeholder="Phone Number" />
-              <select defaultValue="">
+            <form className="quote-form" onSubmit={handleSubmit} noValidate>
+              <input
+                type="text"
+                name="fullName"
+                placeholder="Full Name"
+                value={formData.fullName}
+                onChange={handleChange}
+                aria-invalid={Boolean(errors.fullName)}
+              />
+              <input
+                type="text"
+                name="businessName"
+                placeholder="Business Name"
+                value={formData.businessName}
+                onChange={handleChange}
+                aria-invalid={Boolean(errors.businessName)}
+              />
+              <input
+                type="email"
+                name="email"
+                placeholder="Email Address"
+                value={formData.email}
+                onChange={handleChange}
+                aria-invalid={Boolean(errors.email)}
+              />
+              <input
+                type="tel"
+                name="phone"
+                placeholder="Phone Number"
+                value={formData.phone}
+                onChange={handleChange}
+                aria-invalid={Boolean(errors.phone)}
+              />
+              <select
+                name="serviceType"
+                value={formData.serviceType}
+                onChange={handleChange}
+                aria-invalid={Boolean(errors.serviceType)}
+              >
                 <option value="" disabled>
                   Select Service
                 </option>
@@ -446,7 +873,12 @@ function App() {
                 <option>Restroom Sanitation</option>
                 <option>Common Area Cleaning</option>
               </select>
-              <select defaultValue="">
+              <select
+                name="serviceFrequency"
+                value={formData.serviceFrequency}
+                onChange={handleChange}
+                aria-invalid={Boolean(errors.serviceFrequency)}
+              >
                 <option value="" disabled>
                   Select Frequency
                 </option>
@@ -459,9 +891,32 @@ function App() {
               <textarea
                 rows="5"
                 placeholder="Tell us about your property, cleaning needs, and preferred schedule"
+                name="projectDetails"
+                value={formData.projectDetails}
+                onChange={handleChange}
+                aria-invalid={Boolean(errors.projectDetails)}
               ></textarea>
-              <button type="submit" className="btn btn-primary submit-btn">
-                Submit Request
+
+              {submitState.message ? (
+                <p
+                  className={
+                    submitState.status === 'success'
+                      ? 'form-message form-message-success'
+                      : 'form-message form-message-error'
+                  }
+                >
+                  {submitState.message}
+                </p>
+              ) : null}
+
+              <button
+                type="submit"
+                className="btn btn-primary submit-btn"
+                disabled={submitState.status === 'submitting'}
+              >
+                {submitState.status === 'submitting'
+                  ? 'Submitting...'
+                  : 'Submit Request'}
               </button>
             </form>
           </div>
@@ -480,6 +935,7 @@ function App() {
             <a href="#industries">Who We Serve</a>
             <a href="#gallery">Gallery</a>
             <a href="#quote">Request Quote</a>
+            <a href="#admin">Admin</a>
           </div>
         </div>
       </footer>

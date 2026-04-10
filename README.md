@@ -1,16 +1,75 @@
-# React + Vite
+# Global Choice Solutions Website
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This project now includes:
 
-Currently, two official plugins are available:
+- A React + Vite marketing site
+- A lightweight local Node backend for development
+- A Vercel-ready API backed by Postgres for deployment
+- An in-site admin page for reviewing quote requests
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Local Development
 
-## React Compiler
+Run both the frontend and backend together:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+npm run dev
+```
 
-## Expanding the ESLint configuration
+Useful scripts:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- `npm run dev:client` starts the Vite frontend on port `5173`
+- `npm run dev:server` starts the local SQLite quote API on port `3001`
+- `npm run start` runs the backend without file watching
+
+## Quote API
+
+The backend exposes:
+
+- `POST /api/quotes` to save a quote request
+- `GET /api/quotes` to read saved quote requests
+- `GET /api/health` to verify the API is running
+
+For local development, quote requests are stored in:
+
+- `data/quotes.db`
+
+The database file and table are created automatically the first time the server starts.
+
+## Admin View
+
+To review saved quote requests in the browser, open:
+
+```text
+http://localhost:5173/#admin
+```
+
+In local development, the admin page can load automatically. In deployed environments, it expects an admin password.
+
+## Vercel Deployment
+
+To make the deployed admin page work on Vercel:
+
+1. Create a hosted Postgres database.
+   Vercel Postgres is the simplest fit if you are staying inside Vercel.
+2. Add one of these environment variables in your Vercel project:
+   - `POSTGRES_URL`
+   - `DATABASE_URL`
+3. Add an `ADMIN_SECRET` environment variable with a strong password.
+4. Redeploy the project.
+
+After deployment, you can access the admin page at:
+
+```text
+https://your-domain.com/#admin
+```
+
+The admin page will prompt for the password stored in `ADMIN_SECRET`.
+
+## Environment Variables
+
+This repo includes [.env.example](/Users/bxpressure/Desktop/gcs-website/.env.example) as a starting point.
+
+- `ADMIN_SECRET` protects the deployed admin page
+- `POSTGRES_URL` or `DATABASE_URL` connects the deployed API to Postgres
+
+For Vercel, set these values in Project Settings instead of committing a real `.env` file.
